@@ -71,8 +71,7 @@ public class NettyServerApplication {
         RedisPool.init();
         RocketMQConfig.init();
         RocketMQResource.initProducer();
-        RocketMQResource.initConsumer();
-        RocketMQResource.initIMMessageSendConsumer();
+        RocketMQResource.initPushConsumer();
     }
 
     private static void startNettyServer() {
@@ -80,7 +79,11 @@ public class NettyServerApplication {
         server.start();
     }
 
-    private static void registerToNacos() throws Exception {
-        NettyNacosRegistry.registerInstance();
+    private static void registerToNacos() {
+        try {
+            NettyNacosRegistry.registerInstance();
+        } catch (Exception e) {
+            log.warn("Nacos registration failed. Server running standalone.", e);
+        }
     }
 }

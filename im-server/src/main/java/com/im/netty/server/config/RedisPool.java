@@ -24,31 +24,43 @@ public class RedisPool {
         config.setMaxWaitMillis(RedisConfig.getMaxWait());
         config.setMinIdle(RedisConfig.getMinIdle());
         config.setTestOnBorrow(true);
+        config.setMinIdle(0);  // Don't keep idle connections when Redis is unstable
 
+        String user = RedisConfig.getUsername();
+        String pass = RedisConfig.getPassword();
         jedisPool = new JedisPool(config,
                 RedisConfig.getHost(),
                 RedisConfig.getPort(),
                 RedisConfig.getTimeout(),
-                null,
+                (user != null && !user.isEmpty()) ? user : null,
+                (pass != null && !pass.isEmpty()) ? pass : null,
                 RedisConfig.getDatabase());
 
-        // Validate connection
+        // Validate connection (non-fatal — server can run without Redis)
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.ping();
             log.info("Redis connected: {}:{}/{}",
                     RedisConfig.getHost(), RedisConfig.getPort(), RedisConfig.getDatabase());
+        } catch (Exception e) {
+            log.warn("Redis unavailable: {} — server will start but push will be degraded", e.getMessage());
+            jedisPool.close();
+            jedisPool = null;
         }
     }
 
     public static Jedis getResource() {
         if (jedisPool == null) {
-            throw new IllegalStateException("RedisPool not initialized");
+            return null;  // Redis is down, caller handles null
         }
-        Jedis jedis = jedisPool.getResource();
-        if (jedis == null) {
-            throw new RuntimeException("Failed to acquire Jedis resource from pool");
+        try {
+            return jedisPool.getResource();
+        } catch (Exception e) {
+            return null;
         }
-        return jedis;
+    }
+
+    public static boolean isAvailable() {
+        return jedisPool != null && !jedisPool.isClosed();
     }
 
     public static void close() {

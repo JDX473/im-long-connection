@@ -55,7 +55,7 @@ public class NettyWebSocketMessageHandler extends SimpleChannelInboundHandler<Te
             // Publish to RocketMQ for business processing
             String json = JsonUtil.toJsonString(msg);
             rocketMQProducer.send(
-                    RocketMQResource.TOPIC_CLIENT_MSG,
+                    RocketMQResource.TOPIC_UPSTREAM,
                     "im_chat",
                     json);
 

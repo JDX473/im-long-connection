@@ -27,6 +27,10 @@ public class NettyNacosRegistry {
         Properties properties = new Properties();
         properties.setProperty("serverAddr", NacosConfig.getServerAddr());
         properties.setProperty("namespace", NacosConfig.getNamespace());
+        String user = NacosConfig.getUsername();
+        String pass = NacosConfig.getPassword();
+        if (user != null && !user.isEmpty()) properties.setProperty("username", user);
+        if (pass != null && !pass.isEmpty()) properties.setProperty("password", pass);
         namingService = NacosFactory.createNamingService(properties);
         log.info("Nacos naming service initialized: {}", NacosConfig.getServerAddr());
     }

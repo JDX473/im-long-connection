@@ -13,15 +13,15 @@ import java.util.function.Function;
 public abstract class AbstractRedisService {
 
     protected void executeAndRelease(Consumer<Jedis> action) {
-        try (Jedis jedis = RedisPool.getResource()) {
-            action.accept(jedis);
-        }
+        Jedis jedis = RedisPool.getResource();
+        if (jedis == null) return;  // Redis down, skip
+        try { action.accept(jedis); } finally { jedis.close(); }
     }
 
     protected <T> T executeAndReleaseWithReturn(Function<Jedis, T> action) {
-        try (Jedis jedis = RedisPool.getResource()) {
-            return action.apply(jedis);
-        }
+        Jedis jedis = RedisPool.getResource();
+        if (jedis == null) return null;  // Redis down
+        try { return action.apply(jedis); } finally { jedis.close(); }
     }
 
     protected void del(String key) {
