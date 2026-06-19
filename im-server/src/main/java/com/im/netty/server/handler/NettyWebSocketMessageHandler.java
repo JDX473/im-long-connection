@@ -25,7 +25,9 @@ import org.slf4j.LoggerFactory;
  * </ol>
  *
  * <h3>Heartbeat</h3>
- * Client sends {@code "ping"} (plain text, not JSON), server responds {@code "ok"}.
+ * Keep-alive is handled at the WebSocket protocol level:
+ * {@link IdleStateHandler} → {@link HeartbeatHandler} sends Ping frames,
+ * client auto-replies Pong per RFC 6455. No application-level ping/pong needed.
  */
 public class NettyWebSocketMessageHandler extends SimpleChannelInboundHandler<TextWebSocketFrame> {
 
@@ -36,12 +38,6 @@ public class NettyWebSocketMessageHandler extends SimpleChannelInboundHandler<Te
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame frame) {
         String text = frame.text();
-
-        // Application-level heartbeat
-        if ("ping".equals(text)) {
-            ctx.channel().writeAndFlush(new TextWebSocketFrame("ok"));
-            return;
-        }
 
         try {
             // Deserialize
