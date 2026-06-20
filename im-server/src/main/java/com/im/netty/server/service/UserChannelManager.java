@@ -1,6 +1,5 @@
 package com.im.netty.server.service;
 
-import com.im.netty.common.util.IPAddressUtil;
 import com.im.netty.server.common.NettyInstanceUtils;
 import io.netty.channel.Channel;
 import org.slf4j.Logger;

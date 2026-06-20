@@ -26,7 +26,8 @@ public class ChannelRegistryService {
      */
     public void registry(String userId) {
         String instanceMd5 = NettyInstanceUtils.getInstanceMd5();
-        hashRedisService.set(getRedisKey(), userId, instanceMd5, -1);
+        // 30 minute TTL — prevents zombie entries if server crashes
+        hashRedisService.set(getRedisKey(), userId, instanceMd5, 1800);
     }
 
     /**
