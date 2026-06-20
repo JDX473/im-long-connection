@@ -45,7 +45,8 @@ public class RouterTable {
         if (list.isEmpty()) {
             throw new BusinessException("No available Netty backend instances");
         }
-        int idx = Math.abs(rtCount.incrementAndGet()) % list.size();
+        // Use bitwise AND to handle Integer.MIN_VALUE case safely
+        int idx = (rtCount.incrementAndGet() & Integer.MAX_VALUE) % list.size();
         return list.get(idx);
     }
 
@@ -60,7 +61,7 @@ public class RouterTable {
         if (clientIp == null || clientIp.isEmpty()) {
             return rt();
         }
-        int idx = Math.abs(clientIp.hashCode()) % list.size();
+        int idx = (clientIp.hashCode() & Integer.MAX_VALUE) % list.size();
         return list.get(idx);
     }
 
@@ -69,7 +70,7 @@ public class RouterTable {
         if (list.isEmpty()) {
             throw new BusinessException("No available Netty backend instances");
         }
-        return list.get(Math.abs(index) % list.size());
+        return list.get((index & Integer.MAX_VALUE) % list.size());
     }
 
     public static int size() {

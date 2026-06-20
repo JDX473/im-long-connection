@@ -68,14 +68,17 @@ public class RocketMQResource {
         pushConsumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
         pushConsumer.subscribe(TOPIC_DOWNSTREAM, myTag);
         pushConsumer.registerMessageListener((MessageListenerConcurrently) (msgs, context) -> {
+            boolean success = true;
             for (MessageExt msg : msgs) {
                 try {
                     messageHandler.doWriteMessage2Receiver(msg);
                 } catch (Exception e) {
                     log.error("Error pushing message: msgId={}", msg.getMsgId(), e);
+                    success = false;
                 }
             }
-            return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+            return success ? ConsumeConcurrentlyStatus.CONSUME_SUCCESS
+                           : ConsumeConcurrentlyStatus.RECONSUME_LATER;
         });
         pushConsumer.start();
         log.info("RocketMQ push consumer started, group={}, topic={}, tag={}",

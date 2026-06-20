@@ -71,14 +71,13 @@ public class NettyGatewayRouterHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
-        // Retain the request — it will be forwarded asynchronously
-        req.retain();
-
         // Double-checked locking: ensure one backend connection per client
         if (backendChannelPromise == null) {
             synchronized (this) {
                 if (backendChannelPromise == null) {
                     backendChannelPromise = ctx.newPromise();
+                    // Retain for async use in the listener; released in listener callback
+                    req.retain();
                     initBackendConnection(ctx, req);
                 }
             }
@@ -86,11 +85,15 @@ public class NettyGatewayRouterHandler extends SimpleChannelInboundHandler<Objec
 
         // When backend connection is ready, trigger the WebSocket handshake
         backendChannelPromise.addListener((ChannelFutureListener) future -> {
-            if (future.isSuccess()) {
-                doWriteToNettyServer(ctx, req);
-            } else {
-                log.error("Backend connection failed", future.cause());
-                ctx.close();
+            try {
+                if (future.isSuccess()) {
+                    doWriteToNettyServer(ctx);
+                } else {
+                    log.error("Backend connection failed", future.cause());
+                    ctx.close();
+                }
+            } finally {
+                ReferenceCountUtil.release(req);
             }
         });
     }
@@ -103,8 +106,10 @@ public class NettyGatewayRouterHandler extends SimpleChannelInboundHandler<Objec
     private void initBackendConnection(ChannelHandlerContext ctx, FullHttpRequest req) {
         // Pick backend via round-robin
         Instance backendInstance = RouterTable.rt();
+        // Preserve query string (e.g. ?userId=alice) from the original request
+        String queryString = req.uri().contains("?") ? req.uri().substring(req.uri().indexOf('?')) : "";
         String wsUri = "ws://" + backendInstance.getIp() + ":" + backendInstance.getPort()
-                + NettySocketConstants.CHAT_WEBSOCKET_PATH;
+                + NettySocketConstants.CHAT_WEBSOCKET_PATH + queryString;
         URI uri = URI.create(wsUri);
 
         log.info("Routing client {} → backend {} (current table size: {})",
@@ -140,7 +145,7 @@ public class NettyGatewayRouterHandler extends SimpleChannelInboundHandler<Objec
                 });
     }
 
-    private void doWriteToNettyServer(ChannelHandlerContext ctx, FullHttpRequest req) {
+    private void doWriteToNettyServer(ChannelHandlerContext ctx) {
         // Initiate WebSocket handshake toward backend
         handshaker.handshake(backendChannel);
         // Handler cleanup — remove HTTP codecs from client pipeline after handshake completes
@@ -213,8 +218,9 @@ public class NettyGatewayRouterHandler extends SimpleChannelInboundHandler<Objec
         if (backendChannel != null && backendChannel.isActive()) {
             backendChannel.writeAndFlush(frame.retain());
         } else {
-            log.error("Backend channel inactive, dropping frame from client");
+            log.error("Backend channel inactive, closing client connection");
             ReferenceCountUtil.release(frame);
+            ctx.close();
         }
     }
 

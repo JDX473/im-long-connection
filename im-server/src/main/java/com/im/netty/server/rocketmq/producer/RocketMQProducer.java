@@ -18,28 +18,22 @@ public class RocketMQProducer {
 
     private static final Logger log = LoggerFactory.getLogger(RocketMQProducer.class);
 
-    private static final int DEFAULT_QUEUE_ID = 2;
-
     private final DefaultMQProducer producer;
 
     public RocketMQProducer() {
         this.producer = RocketMQResource.getProducer();
+        if (this.producer == null) {
+            throw new IllegalStateException("RocketMQ producer not initialized");
+        }
     }
 
     /**
      * Send a message with a tag.
-     *
-     * @param topic   RocketMQ topic
-     * @param tag     message tag (used for consumer-side filtering)
-     * @param message JSON message body
      */
     public void send(String topic, String tag, String message) {
         try {
             Message msg = new Message(topic, tag, message.getBytes(StandardCharsets.UTF_8));
-            producer.send(msg, (MessageQueueSelector) (mqs, m, arg) -> {
-                int queueId = (int) arg;
-                return mqs.get(queueId % mqs.size());
-            }, DEFAULT_QUEUE_ID);
+            producer.send(msg);
         } catch (Exception e) {
             log.error("Failed to send RocketMQ message: topic={}, tag={}", topic, tag, e);
         }

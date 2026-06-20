@@ -33,6 +33,13 @@ public class NodeConnector {
 
     private static final int MAX_FRAME_LENGTH = 1024 * 1024; // 1MB
 
+    /** Shared EventLoopGroup — avoids per-connection thread leaks. */
+    private static final EventLoopGroup SHARED_GROUP = new NioEventLoopGroup(2);
+
+    static {
+        Runtime.getRuntime().addShutdownHook(new Thread(SHARED_GROUP::shutdownGracefully));
+    }
+
     private NodeConnector() {}
 
     public static void send(Instance instance, String message) {
@@ -49,12 +56,11 @@ public class NodeConnector {
     }
 
     private static void connect(Instance instance, String message) {
-        EventLoopGroup group = new NioEventLoopGroup(1);
         String key = instance.getIp() + ":" + instance.getPort();
 
         try {
             Bootstrap bootstrap = new Bootstrap();
-            bootstrap.group(group)
+            bootstrap.group(SHARED_GROUP)
                     .channel(NioSocketChannel.class)
                     .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
                     .handler(new ChannelInitializer<Channel>() {
